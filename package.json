@@ -75,14 +75,21 @@
     "win": {
       "icon": "electron/assets/icon.ico",
       "target": [
-        { "target": "nsis", "arch": ["x64"] }
-      ]
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "artifactName": "${productName} Setup ${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "shortcutName": "Church Slide Manager",
+      "installerIcon": "electron/assets/icon.ico",
+      "uninstallerIcon": "electron/assets/icon.ico",
+      "installerHeaderIcon": "electron/assets/icon.ico",
+      "deleteAppDataOnUninstall": false
     }
   }
 }
