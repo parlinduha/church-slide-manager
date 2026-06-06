@@ -232,27 +232,21 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Model */}
+        {/* Model — hanya dropdown, tidak ada input manual untuk mencegah typo */}
         <div>
           <label className="block text-sm font-medium text-white mb-1.5">Model</label>
-          <div className="flex gap-2">
-            <select
-              className="input-field text-sm flex-1"
-              value={settings.model || currentProvider.defaultModel}
-              onChange={e => setSettings(s => ({ ...s, model: e.target.value }))}
-            >
-              {currentProvider.models.map(m => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
-            <input
-              className="input-field text-sm w-44"
-              value={settings.model}
-              onChange={e => setSettings(s => ({ ...s, model: e.target.value }))}
-              placeholder="Ketik nama model..."
-            />
-          </div>
-          <p className="text-xs text-gray-500 mt-1">Default: {currentProvider.defaultModel}</p>
+          <select
+            className="input-field text-sm w-full"
+            value={settings.model || currentProvider.defaultModel}
+            onChange={e => setSettings(s => ({ ...s, model: e.target.value }))}
+          >
+            {currentProvider.models.map(m => (
+              <option key={m} value={m}>{m}{m === currentProvider.defaultModel ? ' (default)' : ''}</option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            Default: <code className="text-gray-400">{currentProvider.defaultModel}</code>
+          </p>
         </div>
 
         {/* API Key */}
@@ -340,6 +334,21 @@ export default function SettingsPage() {
                         {' '}(minimal $2, cukup ribuan pencarian)
                       </li>
                       <li>Atau ganti ke <strong>Groq</strong> (gratis, daftar di console.groq.com)</li>
+                    </ol>
+                  </div>
+                )}
+                {testResult === 'fail' && (testMessage.toLowerCase().includes('quota') || testMessage.toLowerCase().includes('exceeded')) && (
+                  <div className="mt-2 p-2.5 bg-yellow-900/30 border border-yellow-700/50 rounded-lg">
+                    <p className="text-xs text-yellow-300 font-medium mb-1">💡 Kuota API habis — cara fix:</p>
+                    <ol className="text-xs text-yellow-200 space-y-1 list-decimal list-inside">
+                      <li>
+                        Top up saldo di{' '}
+                        <a href="https://platform.openai.com/settings/billing" target="_blank" rel="noopener noreferrer"
+                          className="underline hover:text-white">
+                          platform.openai.com → Billing
+                        </a>
+                      </li>
+                      <li>Atau ganti provider ke <strong>Groq</strong> (gratis) — buat API key di <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="underline hover:text-white">console.groq.com</a></li>
                     </ol>
                   </div>
                 )}

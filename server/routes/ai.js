@@ -150,19 +150,50 @@ function fetchJson(url, options) {
   });
 }
 
-// ─── JSON parser toleran ──────────────────────────────────────────────────────
+// ─── JSON parser toleran — handle berbagai format output AI ──────────────────
 function parseJSON(text) {
   // Coba parse langsung dulu
   try { return JSON.parse(text); } catch {}
-  // Hilangkan markdown code fence
-  let clean = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-  // Cari blok JSON pertama
+
+  // 1. Hilangkan markdown code fence
+  let clean = text
+    .replace(/```json\s*/gi, '')
+    .replace(/```\s*/g, '')
+    .trim();
+
+  // 2. Cari blok JSON (dari '{' pertama ke '}' terakhir)
   const start = clean.indexOf('{');
   const end   = clean.lastIndexOf('}');
-  if (start !== -1 && end !== -1) {
+  if (start !== -1 && end !== -1 && end > start) {
     clean = clean.slice(start, end + 1);
   }
-  return JSON.parse(clean);
+
+  // 3. Coba parse setelah cleaning
+  try { return JSON.parse(clean); } catch {}
+
+  // 4. Fix: AI kadang menaruh newline literal di dalam value string JSON
+  // Contoh: "content": "baris1
+  //                      baris2"  ← ini invalid JSON
+  // Ganti newline di dalam string value menjadi \n
+  const fixed = clean.replace(/"([^"]*?)"/g, (match, inner) => {
+    // Escape newlines dan tab di dalam string
+    const escaped = inner
+      .replace(/\\/g, '\\\\')   // escape backslash dulu
+      .replace(/\n/g, '\\n')
+      .replace(/\r/g, '\\r')
+      .replace(/\t/g, '\\t');
+    // Kembalikan ke bentuk semula jika double-escape terjadi
+    return `"${escaped.replace(/\\\\\\/g, '\\\\')}"`;
+  });
+
+  try { return JSON.parse(fixed); } catch {}
+
+  // 5. Last resort: coba evaluasi dengan lebih agresif
+  // Hapus trailing comma sebelum } atau ]
+  const noTrailing = clean
+    .replace(/,\s*}/g, '}')
+    .replace(/,\s*]/g, ']');
+  return JSON.parse(noTrailing);
 }
 
 // ─── GET settings ─────────────────────────────────────────────────────────────
@@ -181,10 +212,38 @@ router.get('/settings', (req, res) => {
 // ─── POST settings ────────────────────────────────────────────────────────────
 router.post('/settings', (req, res) => {
   const { provider, model, api_key, ollama_url } = req.body;
-  if (provider)    setSetting('ai_provider', provider);
-  if (model)       setSetting('ai_model', model);
-  if (api_key)     setSetting('ai_api_key', api_key);
-  if (ollama_url)  setSetting('ai_ollama_url', ollama_url);
+  if (provider)   setSetting('ai_provider', provider);
+  if (api_key)    setSetting('ai_api_key', api_key);
+  if (ollama_url) setSetting('ai_ollama_url', ollama_url);
+
+  // Simpan model — jika kosong, hapus agar fallback ke default provider
+  if (model !== undefined) {
+    if (model.trim()) {
+      setSetting('ai_model', model.trim());
+    } else {
+      // Model dikosongkan → hapus agar pakai default
+      db.prepare("DELETE FROM settings WHERE key='ai_model'").run();
+    }
+  }
+
+  // Validasi: jika model tidak sesuai provider yang dipilih, reset ke default
+  const savedProvider = getSetting('ai_provider', 'openai');
+  const savedModel    = getSetting('ai_model', '');
+  const providerDefault = PROVIDERS[savedProvider]?.defaultModel || '';
+
+  // Deteksi model dari provider lain yang tidak kompatibel
+  const modelMismatch = (
+    (savedProvider === 'openai'    && savedModel && !savedModel.startsWith('gpt') && !savedModel.startsWith('o1') && !savedModel.startsWith('o3')) ||
+    (savedProvider === 'deepseek'  && savedModel && !savedModel.startsWith('deepseek')) ||
+    (savedProvider === 'groq'      && savedModel && savedModel.startsWith('gpt')) ||
+    (savedProvider === 'anthropic' && savedModel && !savedModel.startsWith('claude')) ||
+    (savedProvider === 'gemini'    && savedModel && !savedModel.startsWith('gemini'))
+  );
+
+  if (modelMismatch) {
+    setSetting('ai_model', providerDefault);
+  }
+
   res.json({ success: true, message: 'Pengaturan AI disimpan' });
 });
 

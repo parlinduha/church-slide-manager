@@ -46,7 +46,7 @@ export default function AILyricsSearch({ onImport, onClose }) {
       const json = await res.json();
       if (!json.success) throw new Error(json.error);
       if (!json.data.slides?.length) {
-        throw new Error('AI tidak menemukan lirik. Coba tambahkan nama penulis atau cek ejaan judul.');
+        throw new Error(`AI tidak menemukan lirik "${query.title}". Coba:\n• Tambahkan nama penulis\n• Periksa ejaan judul\n• Coba bahasa lain (Indonesia/English)`);
       }
       setEditData(json.data);
     } catch (err) {
@@ -177,7 +177,19 @@ export default function AILyricsSearch({ onImport, onClose }) {
           {error && (
             <div className="flex items-start gap-2 m-4 p-3 bg-red-900/20 border border-red-800 rounded-xl">
               <AlertCircle size={15} className="text-red-400 shrink-0 mt-0.5" />
-              <p className="text-sm text-red-300">{error}</p>
+              <div className="text-sm text-red-300">
+                {error.split('\n').map((line, i) => (
+                  <p key={i} className={i > 0 ? 'mt-1 text-xs text-red-400' : ''}>{line}</p>
+                ))}
+                {/* Bantuan khusus untuk error quota/billing */}
+                {(error.toLowerCase().includes('quota') || error.toLowerCase().includes('exceeded') || error.toLowerCase().includes('insufficient')) && (
+                  <div className="mt-2 pt-2 border-t border-red-800">
+                    <p className="text-xs text-yellow-300">
+                      💡 API quota habis — buka <strong>Pengaturan AI</strong> dan ganti ke provider <strong>Groq</strong> (gratis).
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
