@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, Plus, Trash2, Send, Search, Sparkles } from 'lucide-react';
+import { BookOpen, Plus, Trash2, Send, Search, Sparkles, Globe } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useWebSocket } from '../hooks/useWebSocket';
 import AIBibleSearch from '../components/AIBibleSearch';
+import SABDASearch from '../components/SABDASearch';
 
 export default function BiblePage() {
   const { bibleVerses, bibleBooks, fetchBibleBooks, fetchBibleVerses, addBibleVerse, deleteBibleVerse, addToast } = useStore();
@@ -16,6 +17,7 @@ export default function BiblePage() {
   const [filterChapter, setFilterChapter] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [showAISearch, setShowAISearch] = useState(false);
+  const [showSABDA, setShowSABDA] = useState(false);
 
   useEffect(() => {
     fetchBibleBooks();
@@ -72,6 +74,13 @@ export default function BiblePage() {
 
   const formatRef = (v) => `${v.book} ${v.chapter}:${v.verse}${v.verse_end ? `-${v.verse_end}` : ''}`;
 
+  // Simpan hasil SABDA ke database
+  const handleSABDASaveVerses = (verses) => {
+    fetchBibleVerses(filterBook, filterChapter);
+    addToast(`${verses.length} ayat dari SABDA berhasil disimpan`, 'success');
+    setShowSABDA(false);
+  };
+
   // Simpan hasil AI ke database sekaligus
   const handleAISaveVerses = async (verses) => {
     let saved = 0;
@@ -101,12 +110,20 @@ export default function BiblePage() {
           <h1 className="text-xl font-semibold text-white">Ayat Alkitab</h1>
           <p className="text-sm text-gray-400">Simpan & tampilkan ayat ke proyektor</p>
         </div>
-        <button
-          onClick={() => setShowAISearch(true)}
-          className="flex items-center gap-1.5 px-3 py-2 bg-yellow-600/20 hover:bg-yellow-600/40 border border-yellow-700/50 text-yellow-400 hover:text-yellow-300 rounded-lg text-sm font-medium transition-colors"
-        >
-          <Sparkles size={14} /> Cari dengan AI
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowSABDA(true)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600/20 hover:bg-blue-600/40 border border-blue-700/50 text-blue-400 hover:text-blue-300 rounded-lg text-sm font-medium transition-colors"
+          >
+            <Globe size={14} /> Cari di SABDA
+          </button>
+          <button
+            onClick={() => setShowAISearch(true)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-yellow-600/20 hover:bg-yellow-600/40 border border-yellow-700/50 text-yellow-400 hover:text-yellow-300 rounded-lg text-sm font-medium transition-colors"
+          >
+            <Sparkles size={14} /> Cari dengan AI
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
@@ -277,6 +294,16 @@ export default function BiblePage() {
           </div>
         </div>
       </div>
+
+      {/* SABDA Search Modal */}
+      <AnimatePresence>
+        {showSABDA && (
+          <SABDASearch
+            onSaveVerses={handleSABDASaveVerses}
+            onClose={() => setShowSABDA(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* AI Bible Search Modal */}
       <AnimatePresence>
