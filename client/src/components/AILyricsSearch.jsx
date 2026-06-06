@@ -14,7 +14,7 @@ import {
  * - Simpan ke database
  */
 export default function AILyricsSearch({ onImport, onClose }) {
-  const [query, setQuery]         = useState({ title: '', author: '', language: 'id' });
+  const [query, setQuery]         = useState({ title: '' });
   const [loading, setLoading]     = useState(false);
   const [correcting, setCorrecting] = useState(false);
   const [saving, setSaving]       = useState(false);
@@ -41,12 +41,12 @@ export default function AILyricsSearch({ onImport, onClose }) {
       const res  = await fetch('/api/ai/lyrics', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(query),
+        body: JSON.stringify({ title: query.title }),
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error);
       if (!json.data.slides?.length) {
-        throw new Error(`AI tidak menemukan lirik "${query.title}". Coba:\n• Tambahkan nama penulis\n• Periksa ejaan judul\n• Coba bahasa lain (Indonesia/English)`);
+        throw new Error(`AI tidak menemukan lirik "${query.title}".\n• Coba judul yang lebih lengkap\n• Pastikan ejaan benar`);
       }
       setEditData(json.data);
     } catch (err) {
@@ -67,7 +67,7 @@ export default function AILyricsSearch({ onImport, onClose }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title:   editData.title,
-          author:  editData.author || query.author,
+          author:  editData.author || '',
           slides:  editData.slides,
           feedback,
         }),
@@ -135,40 +135,26 @@ export default function AILyricsSearch({ onImport, onClose }) {
 
         {/* ── Form pencarian ── */}
         <div className="p-4 border-b border-surface-600">
-          <div className="flex gap-2 mb-2">
+          <div className="flex gap-2">
             <input
               className="input-field text-sm flex-1"
               value={query.title}
-              onChange={e => setQuery(q => ({ ...q, title: e.target.value }))}
+              onChange={e => setQuery({ title: e.target.value })}
               onKeyDown={e => e.key === 'Enter' && handleSearch()}
-              placeholder="Judul lagu (contoh: Bapa Engkau Sungguh Baik)"
+              placeholder="Ketik judul lagu... (contoh: Bapa Engkau Sungguh Baik)"
               autoFocus
             />
-            <input
-              className="input-field text-sm w-36"
-              value={query.author}
-              onChange={e => setQuery(q => ({ ...q, author: e.target.value }))}
-              placeholder="Penulis (opsional)"
-            />
-            <select
-              className="input-field text-sm w-24"
-              value={query.language}
-              onChange={e => setQuery(q => ({ ...q, language: e.target.value }))}
+            <button
+              onClick={handleSearch}
+              disabled={loading || !query.title.trim()}
+              className="btn-primary px-5"
             >
-              <option value="id">Indonesia</option>
-              <option value="en">English</option>
-            </select>
+              {loading
+                ? <><Loader2 size={14} className="animate-spin" /> Mencari...</>
+                : <><Sparkles size={14} /> Cari</>
+              }
+            </button>
           </div>
-          <button
-            onClick={handleSearch}
-            disabled={loading || !query.title.trim()}
-            className="btn-primary w-full justify-center"
-          >
-            {loading
-              ? <><Loader2 size={14} className="animate-spin" /> Mencari...</>
-              : <><Sparkles size={14} /> Cari Lirik</>
-            }
-          </button>
         </div>
 
         {/* ── Body ── */}

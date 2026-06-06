@@ -250,39 +250,36 @@ router.post('/settings', (req, res) => {
 // ─── POST /lyrics ─────────────────────────────────────────────────────────────
 router.post('/lyrics', async (req, res) => {
   try {
-    const { title, author = '', language = 'id' } = req.body;
+    const { title, author = '' } = req.body;
     if (!title) return res.status(400).json({ success: false, error: 'Judul lagu wajib diisi' });
 
-    const langHint   = language === 'en' ? 'English' : 'Bahasa Indonesia';
     const authorHint = author ? ` oleh ${author}` : '';
 
-    // Prompt yang lebih spesifik dan ketat untuk akurasi lirik
     const prompt = `Kamu adalah database lirik lagu rohani Kristen yang sangat akurat.
 
-TUGAS: Berikan lirik LENGKAP dan AKURAT lagu "${title}"${authorHint} dalam ${langHint}.
+TUGAS: Berikan lirik LENGKAP dan AKURAT lagu "${title}"${authorHint}.
 
 ATURAN PENTING:
 1. Tulis lirik PERSIS seperti aslinya — jangan parafrase, jangan ubah kata apapun.
-2. Jika lagu dalam Bahasa Indonesia, pastikan kata-katanya TEPAT sesuai versi asli yang dinyanyikan di gereja-gereja Indonesia.
-3. Jika lagu populer seperti "Amazing Grace", "Bapa Engkau Sungguh Baik", "10000 Reasons", dll — gunakan versi yang paling umum dipakai.
-4. Pisahkan setiap bagian (Verse 1, Verse 2, Pre-Chorus, Chorus, Bridge, Outro) menjadi slide terpisah.
-5. Maksimal 4 baris per slide. Jika bait punya 8 baris, bagi menjadi 2 slide.
-6. Gunakan \\n sebagai pemisah baris (bukan newline literal).
-7. JANGAN tambahkan keterangan "(ulangi)", "[Chorus]", atau penjelasan lain di dalam content.
+2. Deteksi bahasa secara otomatis dari judul lagu (Indonesia atau Inggris).
+3. Pisahkan setiap bagian (Verse 1, Verse 2, Pre-Chorus, Chorus, Bridge, Outro) menjadi slide terpisah.
+4. Maksimal 4 baris per slide. Jika bait punya 8 baris, bagi menjadi 2 slide.
+5. JANGAN tambahkan keterangan "(ulangi)", "[Chorus]", atau penjelasan apapun di dalam content.
 
-FORMAT RESPONS — kembalikan HANYA JSON ini, tanpa penjelasan apapun:
+FORMAT RESPONS — kembalikan HANYA JSON ini, tanpa teks penjelasan apapun:
 {
   "title": "judul asli lagu",
   "author": "nama penulis/penyanyi",
-  "key_signature": "kunci dasar (G / C / D / A / dll)",
-  "tags": ["kategori lagu"],
+  "key_signature": "kunci dasar",
+  "tags": ["kategori"],
   "slides": [
-    { "id": "v1", "label": "Verse 1", "content": "baris 1\\nbaris 2\\nbaris 3\\nbaris 4" },
-    { "id": "c1", "label": "Chorus", "content": "baris 1\\nbaris 2\\nbaris 3" }
+    { "id": "v1", "label": "Verse 1", "content": "baris 1\nbaris 2\nbaris 3\nbaris 4" },
+    { "id": "c1", "label": "Chorus", "content": "baris 1\nbaris 2\nbaris 3" }
   ]
 }
 
-Jika lagu tidak kamu ketahui dengan pasti, kembalikan: {"title":"${title}","slides":[]}`;
+PENTING: gunakan newline biasa (\\n) di dalam content, bukan literal backslash-n.
+Jika lagu tidak diketahui, kembalikan: {"title":"${title}","slides":[]}`;
 
     const raw    = await callAI(prompt, { temperature: 0.1 });
     const result = parseJSON(raw);
@@ -292,7 +289,7 @@ Jika lagu tidak kamu ketahui dengan pasti, kembalikan: {"title":"${title}","slid
     result.slides = result.slides.map((s, i) => ({
       id:      s.id      || `s${i + 1}`,
       label:   s.label   || `Slide ${i + 1}`,
-      content: (s.content || '').replace(/\\n/g, '\n'), // normalize escaped newlines
+      content: (s.content || '').replace(/\\n/g, '\n').trim(),
     }));
 
     res.json({ success: true, data: result });
