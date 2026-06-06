@@ -1,41 +1,92 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Bot, Key, Save, CheckCircle, XCircle, Loader2, ExternalLink, Info } from 'lucide-react';
+import { Bot, Key, Save, CheckCircle, XCircle, Loader2, ExternalLink, Info, Zap } from 'lucide-react';
 import { useStore } from '../store/useStore';
 
 const PROVIDERS = [
   {
+    id: 'deepseek',
+    name: 'DeepSeek',
+    badge: 'Hemat & Akurat',
+    badgeColor: 'bg-cyan-700 text-cyan-200',
+    description: 'Model terbaik untuk lirik — sangat akurat dan murah. Rekomendasi untuk gereja.',
+    defaultModel: 'deepseek-chat',
+    models: ['deepseek-chat', 'deepseek-reasoner'],
+    docsUrl: 'https://platform.deepseek.com/api_keys',
+    docsLabel: 'Dapatkan API key DeepSeek',
+    color: 'text-cyan-400',
+    keyPlaceholder: 'sk-...',
+    needsKey: true,
+  },
+  {
+    id: 'groq',
+    name: 'Groq (Llama3)',
+    badge: 'Gratis & Cepat',
+    badgeColor: 'bg-orange-700 text-orange-200',
+    description: 'Gratis dengan batas penggunaan harian. Llama3 sangat cepat (< 2 detik).',
+    defaultModel: 'llama3-8b-8192',
+    models: ['llama3-8b-8192', 'llama3-70b-8192', 'mixtral-8x7b-32768', 'gemma2-9b-it'],
+    docsUrl: 'https://console.groq.com/keys',
+    docsLabel: 'Dapatkan API key Groq (Gratis)',
+    color: 'text-orange-400',
+    keyPlaceholder: 'gsk_...',
+    needsKey: true,
+  },
+  {
     id: 'openai',
     name: 'OpenAI (GPT)',
-    description: 'GPT-4o Mini (hemat) atau GPT-4o. Butuh API key berbayar.',
+    badge: 'Populer',
+    badgeColor: 'bg-green-800 text-green-200',
+    description: 'GPT-4o Mini cukup akurat untuk lirik lagu. Berbayar per penggunaan.',
     defaultModel: 'gpt-4o-mini',
-    models: ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo'],
+    models: ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo'],
     docsUrl: 'https://platform.openai.com/api-keys',
     docsLabel: 'Dapatkan API key OpenAI',
     color: 'text-green-400',
     keyPlaceholder: 'sk-...',
+    needsKey: true,
   },
   {
     id: 'gemini',
     name: 'Google Gemini',
-    description: 'Gemini 1.5 Flash gratis hingga batas tertentu. Perlu akun Google.',
+    badge: 'Ada Free Tier',
+    badgeColor: 'bg-blue-800 text-blue-200',
+    description: 'Gemini 1.5 Flash gratis dengan kuota harian. Butuh akun Google.',
     defaultModel: 'gemini-1.5-flash',
     models: ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash'],
     docsUrl: 'https://aistudio.google.com/app/apikey',
     docsLabel: 'Dapatkan API key Gemini (Gratis)',
     color: 'text-blue-400',
     keyPlaceholder: 'AIza...',
+    needsKey: true,
+  },
+  {
+    id: 'anthropic',
+    name: 'Anthropic (Claude)',
+    badge: 'Presisi Tinggi',
+    badgeColor: 'bg-purple-800 text-purple-200',
+    description: 'Claude Haiku sangat presisi untuk teks. Lebih mahal dari DeepSeek.',
+    defaultModel: 'claude-3-haiku-20240307',
+    models: ['claude-3-haiku-20240307', 'claude-3-5-sonnet-20241022', 'claude-3-opus-20240229'],
+    docsUrl: 'https://console.anthropic.com/settings/keys',
+    docsLabel: 'Dapatkan API key Anthropic',
+    color: 'text-purple-400',
+    keyPlaceholder: 'sk-ant-...',
+    needsKey: true,
   },
   {
     id: 'ollama',
     name: 'Ollama (Lokal)',
-    description: 'Jalankan AI di komputer sendiri. Gratis, tanpa internet, privat.',
+    badge: 'Offline',
+    badgeColor: 'bg-gray-700 text-gray-300',
+    description: 'Jalankan AI di komputer sendiri. Privat, tanpa internet, gratis.',
     defaultModel: 'llama3',
-    models: ['llama3', 'llama3.1', 'mistral', 'gemma2', 'qwen2'],
+    models: ['llama3', 'llama3.1', 'mistral', 'gemma2', 'qwen2.5', 'phi3'],
     docsUrl: 'https://ollama.com/download',
     docsLabel: 'Unduh Ollama',
-    color: 'text-orange-400',
+    color: 'text-gray-400',
     keyPlaceholder: null,
+    needsKey: false,
   },
 ];
 
@@ -43,31 +94,29 @@ export default function SettingsPage() {
   const { addToast } = useStore();
 
   const [settings, setSettings] = useState({
-    provider: 'openai',
+    provider: 'deepseek',
     model: '',
     api_key: '',
     ollama_url: 'http://localhost:11434',
     hasKey: false,
   });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState(null); // null | 'ok' | 'fail'
+  const [loading, setLoading]   = useState(true);
+  const [saving, setSaving]     = useState(false);
+  const [testing, setTesting]   = useState(false);
+  const [testResult, setTestResult] = useState(null);
   const [testMessage, setTestMessage] = useState('');
 
   useEffect(() => {
     fetch('/api/ai/settings')
       .then(r => r.json())
       .then(json => {
-        if (json.success) {
-          setSettings(s => ({
-            ...s,
-            provider: json.data.provider || 'openai',
-            model: json.data.model || '',
-            ollama_url: json.data.ollamaUrl || 'http://localhost:11434',
-            hasKey: json.data.hasKey,
-          }));
-        }
+        if (json.success) setSettings(s => ({
+          ...s,
+          provider:  json.data.provider  || 'deepseek',
+          model:     json.data.model     || '',
+          ollama_url:json.data.ollamaUrl || 'http://localhost:11434',
+          hasKey:    json.data.hasKey,
+        }));
       })
       .finally(() => setLoading(false));
   }, []);
@@ -79,13 +128,13 @@ export default function SettingsPage() {
     setTestResult(null);
     try {
       const body = {
-        provider: settings.provider,
-        model: settings.model || currentProvider.defaultModel,
+        provider:   settings.provider,
+        model:      settings.model || currentProvider.defaultModel,
         ollama_url: settings.ollama_url,
       };
       if (settings.api_key) body.api_key = settings.api_key;
 
-      const res = await fetch('/api/ai/settings', {
+      const res  = await fetch('/api/ai/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -106,15 +155,10 @@ export default function SettingsPage() {
     setTestResult(null);
     setTestMessage('');
     try {
-      const res = await fetch('/api/ai/test');
+      const res  = await fetch('/api/ai/test');
       const json = await res.json();
-      if (json.success) {
-        setTestResult('ok');
-        setTestMessage(json.message);
-      } else {
-        setTestResult('fail');
-        setTestMessage(json.error);
-      }
+      setTestResult(json.success ? 'ok' : 'fail');
+      setTestMessage(json.success ? json.message : json.error);
     } catch (err) {
       setTestResult('fail');
       setTestMessage(err.message);
@@ -123,13 +167,11 @@ export default function SettingsPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 size={24} className="text-gray-400 animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="flex items-center justify-center h-full">
+      <Loader2 size={24} className="text-gray-400 animate-spin" />
+    </div>
+  );
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
@@ -140,30 +182,39 @@ export default function SettingsPage() {
         </div>
         <div>
           <h1 className="text-xl font-semibold text-white">Pengaturan AI</h1>
-          <p className="text-sm text-gray-400">Konfigurasi AI untuk mencari lirik & ayat Alkitab</p>
+          <p className="text-sm text-gray-400">Konfigurasi AI untuk pencarian lirik lagu & ayat Alkitab</p>
         </div>
       </div>
 
       <div className="max-w-2xl w-full mx-auto p-6 space-y-6">
 
+        {/* Rekomendasi banner */}
+        <div className="flex items-start gap-3 p-3.5 bg-cyan-900/20 border border-cyan-700/40 rounded-xl">
+          <Zap size={16} className="text-cyan-400 shrink-0 mt-0.5" />
+          <p className="text-xs text-cyan-300">
+            <strong>Rekomendasi:</strong> Gunakan <strong>DeepSeek</strong> atau <strong>Groq</strong> untuk hasil lirik paling akurat dengan harga terjangkau (DeepSeek) atau gratis (Groq).
+          </p>
+        </div>
+
         {/* Pilih Provider */}
         <div>
           <label className="block text-sm font-medium text-white mb-3">Pilih Provider AI</label>
-          <div className="grid gap-3">
+          <div className="grid gap-2">
             {PROVIDERS.map(p => (
               <button
                 key={p.id}
                 onClick={() => setSettings(s => ({ ...s, provider: p.id, model: p.defaultModel }))}
-                className={`text-left p-4 rounded-xl border transition-all ${
+                className={`text-left p-3.5 rounded-xl border transition-all ${
                   settings.provider === p.id
                     ? 'border-primary-500 bg-primary-600/10'
                     : 'border-surface-600 bg-surface-800 hover:border-surface-400'
                 }`}
               >
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2 mb-1">
                   <span className={`font-semibold text-sm ${p.color}`}>{p.name}</span>
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full ${p.badgeColor}`}>{p.badge}</span>
                   {settings.provider === p.id && (
-                    <span className="text-xs bg-primary-600 text-white px-2 py-0.5 rounded-full">Aktif</span>
+                    <span className="ml-auto text-xs bg-primary-600 text-white px-2 py-0.5 rounded-full">Aktif</span>
                   )}
                 </div>
                 <p className="text-xs text-gray-400">{p.description}</p>
@@ -172,7 +223,7 @@ export default function SettingsPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={e => e.stopPropagation()}
-                  className="inline-flex items-center gap-1 text-xs text-primary-400 hover:text-primary-300 mt-2"
+                  className="inline-flex items-center gap-1 text-xs text-primary-400 hover:text-primary-300 mt-1.5"
                 >
                   <ExternalLink size={10} /> {p.docsLabel}
                 </a>
@@ -198,22 +249,18 @@ export default function SettingsPage() {
               className="input-field text-sm w-44"
               value={settings.model}
               onChange={e => setSettings(s => ({ ...s, model: e.target.value }))}
-              placeholder="Atau ketik manual..."
+              placeholder="Ketik nama model..."
             />
           </div>
           <p className="text-xs text-gray-500 mt-1">Default: {currentProvider.defaultModel}</p>
         </div>
 
-        {/* API Key (sembunyikan untuk Ollama) */}
-        {settings.provider !== 'ollama' && (
+        {/* API Key */}
+        {currentProvider.needsKey && (
           <div>
             <label className="block text-sm font-medium text-white mb-1.5">
               API Key
-              {settings.hasKey && (
-                <span className="ml-2 text-xs text-green-400 font-normal">
-                  ✓ API key sudah tersimpan
-                </span>
-              )}
+              {settings.hasKey && <span className="ml-2 text-xs text-green-400 font-normal">✓ Sudah tersimpan</span>}
             </label>
             <div className="relative">
               <Key size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
@@ -222,15 +269,13 @@ export default function SettingsPage() {
                 className="input-field pl-9 text-sm font-mono"
                 value={settings.api_key}
                 onChange={e => setSettings(s => ({ ...s, api_key: e.target.value }))}
-                placeholder={settings.hasKey ? '••••••••• (kosongkan jika tidak ingin mengubah)' : currentProvider.keyPlaceholder || 'Masukkan API key...'}
+                placeholder={settings.hasKey ? '••••••• (kosongkan jika tidak ingin mengubah)' : (currentProvider.keyPlaceholder || 'Masukkan API key...')}
                 autoComplete="new-password"
               />
             </div>
-            <div className="flex items-start gap-1.5 mt-2">
-              <Info size={12} className="text-gray-500 shrink-0 mt-0.5" />
-              <p className="text-xs text-gray-500">
-                API key disimpan di server lokal, tidak dikirim ke pihak ketiga selain provider AI yang dipilih.
-              </p>
+            <div className="flex items-start gap-1.5 mt-1.5">
+              <Info size={11} className="text-gray-600 shrink-0 mt-0.5" />
+              <p className="text-xs text-gray-600">API key disimpan di server lokal, tidak dikirim ke pihak selain provider yang dipilih.</p>
             </div>
           </div>
         )}
@@ -246,27 +291,18 @@ export default function SettingsPage() {
               placeholder="http://localhost:11434"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Pastikan Ollama sudah berjalan dan model sudah diunduh: <code className="text-orange-400">ollama pull llama3</code>
+              Unduh model: <code className="text-orange-400">ollama pull llama3</code>
             </p>
           </div>
         )}
 
-        {/* Tombol aksi */}
+        {/* Tombol */}
         <div className="flex gap-3">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="btn-primary"
-          >
+          <button onClick={handleSave} disabled={saving} className="btn-primary">
             {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-            {saving ? 'Menyimpan...' : 'Simpan Pengaturan'}
+            {saving ? 'Menyimpan...' : 'Simpan'}
           </button>
-
-          <button
-            onClick={handleTest}
-            disabled={testing}
-            className="btn-secondary"
-          >
+          <button onClick={handleTest} disabled={testing} className="btn-secondary">
             {testing ? <Loader2 size={15} className="animate-spin" /> : <Bot size={15} />}
             {testing ? 'Menguji...' : 'Uji Koneksi'}
           </button>
@@ -275,39 +311,75 @@ export default function SettingsPage() {
         {/* Hasil test */}
         {testResult && (
           <motion.div
-            initial={{ opacity: 0, y: -8 }}
+            initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`flex items-start gap-3 p-4 rounded-xl border ${
+            className={`flex items-start gap-3 p-4 rounded-xl border text-sm ${
               testResult === 'ok'
                 ? 'bg-green-900/20 border-green-700 text-green-300'
                 : 'bg-red-900/20 border-red-700 text-red-300'
             }`}
           >
-            {testResult === 'ok'
-              ? <CheckCircle size={18} className="shrink-0 mt-0.5" />
-              : <XCircle size={18} className="shrink-0 mt-0.5" />
-            }
-            <p className="text-sm">{testMessage}</p>
+            {testResult === 'ok' ? <CheckCircle size={17} className="shrink-0 mt-0.5" /> : <XCircle size={17} className="shrink-0 mt-0.5" />}
+            <p>{testMessage}</p>
           </motion.div>
         )}
 
-        {/* Info cara pakai */}
-        <div className="card p-4 space-y-2">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Cara Menggunakan Fitur AI</p>
-          <ul className="space-y-1.5 text-sm text-gray-400">
+        {/* Tips akurasi */}
+        <div className="card p-4 space-y-3">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Tips Akurasi Lirik</p>
+          <ul className="space-y-2 text-xs text-gray-400">
             <li className="flex items-start gap-2">
-              <span className="text-primary-400 shrink-0">•</span>
-              <span>Di halaman <strong className="text-white">Daftar Lagu</strong>, klik tombol <strong className="text-white">✨ Cari dengan AI</strong> untuk mencari lirik lengkap beserta pembagian slide otomatis.</span>
+              <span className="text-green-400 shrink-0 mt-0.5">✓</span>
+              <span>Gunakan <strong className="text-white">DeepSeek Chat</strong> atau <strong className="text-white">GPT-4o</strong> untuk lirik lagu Bahasa Indonesia — lebih akurat dari model yang lebih kecil.</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-primary-400 shrink-0">•</span>
-              <span>Di halaman <strong className="text-white">Alkitab</strong>, klik tombol <strong className="text-white">✨ Cari dengan AI</strong> untuk mencari ayat berdasarkan referensi (Yoh 3:16) atau tema ("kasih", "iman").</span>
+              <span className="text-green-400 shrink-0 mt-0.5">✓</span>
+              <span>Setelah lirik muncul, klik tombol <strong className="text-white">✏️ Koreksi dengan AI</strong> jika ada kata yang kurang tepat — AI akan memperbaikinya otomatis.</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-primary-400 shrink-0">•</span>
-              <span>Hasil pencarian AI dapat langsung diedit sebelum disimpan ke database.</span>
+              <span className="text-green-400 shrink-0 mt-0.5">✓</span>
+              <span>Tambahkan nama <strong className="text-white">penulis/penyanyi</strong> saat mencari untuk hasil yang lebih spesifik (contoh: "Bapa Engkau Sungguh Baik" oleh "Franky Sihombing").</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-yellow-400 shrink-0 mt-0.5">!</span>
+              <span>Selalu periksa dan edit lirik sebelum dipakai di ibadah — AI bisa salah pada kata-kata tertentu.</span>
             </li>
           </ul>
+        </div>
+
+        {/* Perbandingan provider */}
+        <div className="card p-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Perbandingan Provider</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-gray-400">
+              <thead>
+                <tr className="border-b border-surface-600">
+                  <th className="text-left py-1.5 font-medium text-gray-300">Provider</th>
+                  <th className="text-center py-1.5 font-medium text-gray-300">Akurasi Lirik</th>
+                  <th className="text-center py-1.5 font-medium text-gray-300">Kecepatan</th>
+                  <th className="text-center py-1.5 font-medium text-gray-300">Harga</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-700">
+                {[
+                  { name: 'DeepSeek',  accuracy: '★★★★★', speed: '★★★★', price: 'Sangat Murah' },
+                  { name: 'Groq',      accuracy: '★★★★',  speed: '★★★★★', price: 'Gratis*' },
+                  { name: 'GPT-4o',    accuracy: '★★★★★', speed: '★★★',  price: 'Berbayar' },
+                  { name: 'Gemini Flash', accuracy: '★★★★', speed: '★★★★', price: 'Gratis*' },
+                  { name: 'Claude Haiku', accuracy: '★★★★★', speed: '★★★★', price: 'Berbayar' },
+                  { name: 'Ollama', accuracy: '★★★', speed: '★★★', price: 'Gratis (lokal)' },
+                ].map(r => (
+                  <tr key={r.name}>
+                    <td className="py-1.5 text-white">{r.name}</td>
+                    <td className="text-center py-1.5 text-yellow-400">{r.accuracy}</td>
+                    <td className="text-center py-1.5">{r.speed}</td>
+                    <td className="text-center py-1.5">{r.price}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="text-xs text-gray-600 mt-2">* Ada batas penggunaan harian gratis</p>
+          </div>
         </div>
       </div>
     </div>
