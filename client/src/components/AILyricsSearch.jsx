@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sparkles, X, Loader2, ChevronRight, AlertCircle,
-  Edit2, Save, Check, RefreshCw, MessageSquare, Plus, Trash2
+  Edit2, Save, Check, RefreshCw, MessageSquare, Plus, Trash2, Settings
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 /**
  * Modal pencarian + koreksi lirik lagu menggunakan AI.
@@ -14,6 +15,7 @@ import {
  * - Simpan ke database
  */
 export default function AILyricsSearch({ onImport, onClose }) {
+  const navigate = useNavigate();
   const [query, setQuery]         = useState({ title: '' });
   const [loading, setLoading]     = useState(false);
   const [correcting, setCorrecting] = useState(false);
@@ -161,21 +163,47 @@ export default function AILyricsSearch({ onImport, onClose }) {
         <div className="flex-1 overflow-y-auto">
           {/* Error */}
           {error && (
-            <div className="flex items-start gap-2 m-4 p-3 bg-red-900/20 border border-red-800 rounded-xl">
-              <AlertCircle size={15} className="text-red-400 shrink-0 mt-0.5" />
-              <div className="text-sm text-red-300">
-                {error.split('\n').map((line, i) => (
-                  <p key={i} className={i > 0 ? 'mt-1 text-xs text-red-400' : ''}>{line}</p>
-                ))}
-                {/* Bantuan khusus untuk error quota/billing */}
-                {(error.toLowerCase().includes('quota') || error.toLowerCase().includes('exceeded') || error.toLowerCase().includes('insufficient')) && (
-                  <div className="mt-2 pt-2 border-t border-red-800">
-                    <p className="text-xs text-yellow-300">
-                      💡 API quota habis — buka <strong>Pengaturan AI</strong> dan ganti ke provider <strong>Groq</strong> (gratis).
-                    </p>
-                  </div>
-                )}
+            <div className="m-4 p-4 bg-red-900/20 border border-red-800 rounded-xl">
+              <div className="flex items-start gap-2 mb-2">
+                <AlertCircle size={15} className="text-red-400 shrink-0 mt-0.5" />
+                <div className="text-sm text-red-300 flex-1">
+                  {error.split('\n').map((line, i) => (
+                    <p key={i} className={i > 0 ? 'mt-1 text-xs text-red-400' : ''}>{line}</p>
+                  ))}
+                </div>
               </div>
+
+              {/* Quota/billing habis */}
+              {(error.toLowerCase().includes('quota') || error.toLowerCase().includes('exceeded') ||
+                error.toLowerCase().includes('insufficient') || error.toLowerCase().includes('billing')) && (
+                <div className="mt-3 p-3 bg-yellow-900/30 border border-yellow-700/50 rounded-lg">
+                  <p className="text-xs text-yellow-300 font-medium mb-2">
+                    💳 Kuota API habis atau saldo tidak cukup
+                  </p>
+                  <p className="text-xs text-yellow-200 mb-3">
+                    Ganti ke provider lain yang masih aktif, atau top up saldo.
+                  </p>
+                  <button
+                    onClick={() => { onClose(); navigate('/settings'); }}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-yellow-700 hover:bg-yellow-600 text-white rounded-lg transition-colors"
+                  >
+                    <Settings size={12} /> Buka Pengaturan AI
+                  </button>
+                </div>
+              )}
+
+              {/* API key belum diset */}
+              {(error.toLowerCase().includes('api key') || error.toLowerCase().includes('belum diatur')) && (
+                <div className="mt-3 p-3 bg-blue-900/30 border border-blue-700/50 rounded-lg">
+                  <p className="text-xs text-blue-300 mb-2">API key belum dikonfigurasi.</p>
+                  <button
+                    onClick={() => { onClose(); navigate('/settings'); }}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-blue-700 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                  >
+                    <Settings size={12} /> Buka Pengaturan AI
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
