@@ -313,14 +313,44 @@ export default function SettingsPage() {
           <motion.div
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`flex items-start gap-3 p-4 rounded-xl border text-sm ${
+            className={`p-4 rounded-xl border text-sm ${
               testResult === 'ok'
                 ? 'bg-green-900/20 border-green-700 text-green-300'
                 : 'bg-red-900/20 border-red-700 text-red-300'
             }`}
           >
-            {testResult === 'ok' ? <CheckCircle size={17} className="shrink-0 mt-0.5" /> : <XCircle size={17} className="shrink-0 mt-0.5" />}
-            <p>{testMessage}</p>
+            <div className="flex items-start gap-3">
+              {testResult === 'ok'
+                ? <CheckCircle size={17} className="shrink-0 mt-0.5 text-green-400" />
+                : <XCircle size={17} className="shrink-0 mt-0.5 text-red-400" />
+              }
+              <div className="flex-1">
+                <p>{testMessage}</p>
+                {/* Bantuan kontekstual berdasarkan error */}
+                {testResult === 'fail' && testMessage.toLowerCase().includes('insufficient balance') && (
+                  <div className="mt-2 p-2.5 bg-yellow-900/30 border border-yellow-700/50 rounded-lg">
+                    <p className="text-xs text-yellow-300 font-medium mb-1">💡 Saldo kredit habis — cara fix:</p>
+                    <ol className="text-xs text-yellow-200 space-y-1 list-decimal list-inside">
+                      <li>
+                        Buka{' '}
+                        <a href="https://platform.deepseek.com/top_up" target="_blank" rel="noopener noreferrer"
+                          className="underline hover:text-white">
+                          platform.deepseek.com → Top up
+                        </a>
+                        {' '}(minimal $2, cukup ribuan pencarian)
+                      </li>
+                      <li>Atau ganti ke <strong>Groq</strong> (gratis, daftar di console.groq.com)</li>
+                    </ol>
+                  </div>
+                )}
+                {testResult === 'fail' && testMessage.toLowerCase().includes('api key') && (
+                  <p className="mt-1.5 text-xs opacity-75">Pastikan API key sudah disimpan dengan klik tombol "Simpan" sebelum uji koneksi.</p>
+                )}
+                {testResult === 'fail' && (testMessage.toLowerCase().includes('timeout') || testMessage.toLowerCase().includes('connect')) && (
+                  <p className="mt-1.5 text-xs opacity-75">Periksa koneksi internet Anda. Untuk Ollama, pastikan sudah berjalan di komputer.</p>
+                )}
+              </div>
+            </div>
           </motion.div>
         )}
 
