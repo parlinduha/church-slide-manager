@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Trash2, GripVertical, Save, X, ChevronUp, ChevronDown, Palette, Layers } from 'lucide-react';
+import { Plus, Trash2, GripVertical, Save, X, ChevronUp, ChevronDown,
+         Palette, Layers, Upload, Image, Video, Loader2, AlertCircle } from 'lucide-react';
 import SlidePreview from './SlidePreview';
+import BackgroundRenderer from './BackgroundRenderer';
 
 const FONT_FAMILIES = ['Arial', 'Georgia', 'Times New Roman', 'Trebuchet MS', 'Verdana', 'Impact', 'Tahoma'];
 const KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B', 'Am', 'Dm', 'Em', 'Gm'];
@@ -50,11 +52,16 @@ export default function SongEditor({ song, onSave, onCancel }) {
     bg_config: song?.bg_config
       ? (typeof song.bg_config === 'string' ? JSON.parse(song.bg_config) : song.bg_config)
       : {},
+    bg_media_url:  song?.bg_media_url  || '',
+    bg_media_type: song?.bg_media_type || '',
   });
 
   const [activeSlideIdx, setActiveSlideIdx] = useState(0);
-  const [saving, setSaving] = useState(false);
-  const [styleTab, setStyleTab] = useState('text'); // 'text' | 'background'
+  const [saving, setSaving]       = useState(false);
+  const [styleTab, setStyleTab]   = useState('text');
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const fileInputRef = useRef();
 
   const activeSlide = form.slides[activeSlideIdx];
 
@@ -88,6 +95,38 @@ export default function SongEditor({ song, onSave, onCancel }) {
     setActiveSlideIdx(target);
   };
 
+  const handleUploadMedia = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setUploadError('');
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res  = await fetch('/api/songs/media/upload', { method: 'POST', body: fd });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      setField('bg_media_url',  json.data.url);
+      setField('bg_media_type', json.data.mediaType);
+      setField('bg_type', 'media');
+    } catch (err) {
+      setUploadError(err.message);
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleRemoveMedia = async () => {
+    if (form.bg_media_url) {
+      const filename = form.bg_media_url.split('/').pop();
+      fetch(`/api/songs/media/${filename}`, { method: 'DELETE' }).catch(() => {});
+    }
+    setField('bg_media_url', '');
+    setField('bg_media_type', '');
+    if (form.bg_type === 'media') setField('bg_type', 'solid');
+  };
+
   const handleSave = async () => {
     if (!form.title.trim()) return alert('Judul lagu wajib diisi!');
     setSaving(true);
@@ -97,6 +136,8 @@ export default function SongEditor({ song, onSave, onCancel }) {
         tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
         font_size: parseInt(form.font_size),
         bg_config: JSON.stringify(form.bg_config),
+        bg_media_url:  form.bg_media_url  || '',
+        bg_media_type: form.bg_media_type || '',
       });
     } finally {
       setSaving(false);
@@ -336,21 +377,146 @@ export default function SongEditor({ song, onSave, onCancel }) {
               </div>
             )}
 
-            {/* ── Tab: Background ── */}
+          {/* ── Tab: Background ── */}
             {styleTab === 'background' && (
               <div className="space-y-4">
+                {/* Upload Media */}
+                <div>
+                  <label className="block text-xs text-gray-400 mb-2 uppercase tracking-wider">
+                    📎 Background Media
+                  </label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,video/*"
+                    onChange={handleUploadMedia}
+                    className="hidden"
+                  />
+
+                  {form.bg_media_url ? (
+                    <div className="space-y-2">
+                      {/* Preview media */}
+                      <div className="relative w-full rounded-lg overflow-hidden bg-black"
+                        style={{ paddingBottom: '56.25%' }}>
+                        {form.bg_media_type === 'video' ? (
+                          <video src={form.bg_media_url} muted autoPlay loop
+                            className="absolute inset-0 w-full h-full object-cover" />
+                        ) : (
+                          <img src={form.bg_media_url} alt=""
+                            className="absolute inset-0 w-full h-full object-cover" />
+                        )}
+                        <div className="absolute top-1.5 left-1.5 flex items-center gap-1 bg-black/60 text-white text-xs px-2 py-0.5 rounded">
+                          {form.bg_media_type === 'video'
+                            ? <><Video size={10} /> Video</>
+                            : <><Image size={10} /> Gambar</>
+                          }
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          className="flex-1 py-1.5 bg-surface-700 hover:bg-surface-600 text-gray-300 rounded text-xs flex items-center justify-center gap-1"
+                        >
+                          <Upload size={11} /> Ganti
+                        </button>
+                        <button
+                          onClick={handleRemoveMedia}
+                          className="flex-1 py-1.5 bg-red-900/40 hover:bg-red-800 text-red-400 hover:text-white rounded text-xs flex items-center justify-center gap-1"
+                        >
+                          <Trash2 size={11} /> Hapus
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="w-full border-2 border-dashed border-surface-500 hover:border-primary-500 rounded-xl py-5 flex flex-col items-center gap-2 text-gray-500 hover:text-gray-300 transition-colors"
+                    >
+                      {uploading
+                        ? <Loader2 size={20} className="animate-spin text-primary-400" />
+                        : <Upload size={20} />
+                      }
+                      <span className="text-xs font-medium">
+                        {uploading ? 'Mengunggah...' : 'Upload Gambar atau Video'}
+                      </span>
+                      <span className="text-xs opacity-60">JPG, PNG, WebP, MP4, WebM (maks 200MB)</span>
+                    </button>
+                  )}
+
+                  {uploading && (
+                    <div className="flex items-center gap-2 mt-2 text-xs text-primary-400">
+                      <Loader2 size={12} className="animate-spin" /> Mengunggah file...
+                    </div>
+                  )}
+                  {uploadError && (
+                    <div className="flex items-start gap-1.5 mt-2 text-xs text-red-400">
+                      <AlertCircle size={12} className="shrink-0 mt-0.5" />
+                      {uploadError}
+                    </div>
+                  )}
+                </div>
+
+                {/* Jika ada media, tampilkan opsi overlay */}
+                {form.bg_media_url && form.bg_type === 'media' && (
+                  <div className="space-y-3 pt-2 border-t border-surface-600">
+                    <p className="text-xs text-gray-400 uppercase tracking-wider">Pengaturan Overlay</p>
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">
+                        Kegelapan Overlay: {Math.round((form.bg_config?.overlay_opacity ?? 0.35) * 100)}%
+                      </label>
+                      <input type="range" min="0" max="90" step="5"
+                        value={Math.round((form.bg_config?.overlay_opacity ?? 0.35) * 100)}
+                        onChange={e => setField('bg_config', { ...form.bg_config, overlay_opacity: parseInt(e.target.value) / 100 })}
+                        className="w-full accent-primary-500" />
+                      <div className="flex justify-between text-xs text-gray-600 mt-0.5">
+                        <span>Terang</span><span>Gelap</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">Ukuran Tampilan</label>
+                      <div className="flex gap-1">
+                        {[
+                          { id: 'cover', label: 'Penuh' },
+                          { id: 'contain', label: 'Fit' },
+                        ].map(f => (
+                          <button key={f.id}
+                            onClick={() => setField('bg_config', { ...form.bg_config, fit: f.id })}
+                            className={`flex-1 py-1.5 rounded text-xs transition-colors ${
+                              (form.bg_config?.fit || 'cover') === f.id
+                                ? 'bg-primary-600 text-white'
+                                : 'bg-surface-700 text-gray-400 hover:text-white'
+                            }`}>
+                            {f.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Separator */}
+                <div className="border-t border-surface-600 pt-3">
+                  <p className="text-xs text-gray-500 mb-3">— atau pilih background lain —</p>
+                </div>
+
                 {/* Tipe background */}
                 <div>
                   <label className="block text-xs text-gray-400 mb-2">Jenis Background</label>
-                  <div className="grid grid-cols-3 gap-1.5">
+                  <div className="grid grid-cols-2 gap-1.5">
                     {[
-                      { id: 'solid',    label: 'Solid' },
-                      { id: 'gradient', label: 'Gradien' },
+                      { id: 'solid',    label: '⬛ Solid' },
+                      { id: 'gradient', label: '🌈 Gradien' },
                       { id: 'animated', label: '✨ Animasi' },
+                      { id: 'media',    label: '🖼 Media', disabled: !form.bg_media_url },
                     ].map(t => (
-                      <button key={t.id} onClick={() => setField('bg_type', t.id)}
-                        className={`py-1.5 rounded text-xs transition-colors ${
-                          form.bg_type === t.id ? 'bg-primary-600 text-white' : 'bg-surface-700 text-gray-400 hover:text-white'
+                      <button key={t.id}
+                        disabled={t.disabled}
+                        onClick={() => setField('bg_type', t.id)}
+                        className={`py-1.5 rounded text-xs transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                          form.bg_type === t.id
+                            ? 'bg-primary-600 text-white'
+                            : 'bg-surface-700 text-gray-400 hover:text-white'
                         }`}>
                         {t.label}
                       </button>
@@ -365,17 +531,11 @@ export default function SongEditor({ song, onSave, onCancel }) {
                     <div className="flex items-center gap-2">
                       <input type="color"
                         value={form.bg_config?.color || form.background_color || '#000000'}
-                        onChange={e => {
-                          setField('bg_config', { color: e.target.value });
-                          setField('background_color', e.target.value);
-                        }}
+                        onChange={e => { setField('bg_config', { color: e.target.value }); setField('background_color', e.target.value); }}
                         className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent" />
                       <input className="input-field text-sm flex-1"
                         value={form.bg_config?.color || form.background_color || '#000000'}
-                        onChange={e => {
-                          setField('bg_config', { color: e.target.value });
-                          setField('background_color', e.target.value);
-                        }} />
+                        onChange={e => { setField('bg_config', { color: e.target.value }); setField('background_color', e.target.value); }} />
                     </div>
                     <div className="grid grid-cols-3 gap-1.5 mt-2">
                       {[
@@ -404,8 +564,7 @@ export default function SongEditor({ song, onSave, onCancel }) {
                           <input type="color" value={form.bg_config?.from || '#1a237e'}
                             onChange={e => setField('bg_config', { ...form.bg_config, from: e.target.value })}
                             className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent" />
-                          <input className="input-field text-xs flex-1"
-                            value={form.bg_config?.from || '#1a237e'}
+                          <input className="input-field text-xs flex-1" value={form.bg_config?.from || '#1a237e'}
                             onChange={e => setField('bg_config', { ...form.bg_config, from: e.target.value })} />
                         </div>
                       </div>
@@ -415,8 +574,7 @@ export default function SongEditor({ song, onSave, onCancel }) {
                           <input type="color" value={form.bg_config?.to || '#4a148c'}
                             onChange={e => setField('bg_config', { ...form.bg_config, to: e.target.value })}
                             className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent" />
-                          <input className="input-field text-xs flex-1"
-                            value={form.bg_config?.to || '#4a148c'}
+                          <input className="input-field text-xs flex-1" value={form.bg_config?.to || '#4a148c'}
                             onChange={e => setField('bg_config', { ...form.bg_config, to: e.target.value })} />
                         </div>
                       </div>
@@ -435,10 +593,8 @@ export default function SongEditor({ song, onSave, onCancel }) {
                         className="w-4 h-4 accent-primary-500" />
                       <span className="text-xs text-gray-300">Animasikan gradien</span>
                     </label>
-                    {/* Preview gradient */}
                     <div className="w-full h-12 rounded-lg"
                       style={{ background: `linear-gradient(${form.bg_config?.angle ?? 135}deg, ${form.bg_config?.from || '#1a237e'}, ${form.bg_config?.to || '#4a148c'})` }} />
-                    {/* Preset gradient */}
                     <div>
                       <p className="text-xs text-gray-500 mb-1.5">Preset</p>
                       <div className="grid grid-cols-2 gap-1.5">
@@ -457,38 +613,57 @@ export default function SongEditor({ song, onSave, onCancel }) {
 
                 {/* Animated */}
                 {form.bg_type === 'animated' && (
-                  <div className="space-y-3">
-                    <p className="text-xs text-gray-500">Pilih efek animasi background:</p>
-                    <div className="space-y-1.5">
-                      {ANIMATED_PRESETS.map(p => (
-                        <button key={p.id}
-                          onClick={() => setField('bg_config', { preset: p.id })}
-                          className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all ${
-                            form.bg_config?.preset === p.id
-                              ? 'bg-primary-600/30 ring-1 ring-primary-500 text-white'
-                              : 'bg-surface-700 text-gray-400 hover:text-white hover:bg-surface-600'
-                          }`}>
-                          <span className="font-medium">{p.name}</span>
-                          <span className="block text-gray-500 text-xs mt-0.5">{p.desc}</span>
-                        </button>
-                      ))}
-                    </div>
+                  <div className="space-y-2">
+                    {ANIMATED_PRESETS.map(p => (
+                      <button key={p.id}
+                        onClick={() => setField('bg_config', { preset: p.id })}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all ${
+                          form.bg_config?.preset === p.id
+                            ? 'bg-primary-600/30 ring-1 ring-primary-500 text-white'
+                            : 'bg-surface-700 text-gray-400 hover:text-white hover:bg-surface-600'
+                        }`}>
+                        <span className="font-medium">{p.name}</span>
+                        <span className="block text-gray-500 text-xs mt-0.5">{p.desc}</span>
+                      </button>
+                    ))}
                     {form.bg_config?.preset === 'particles' && (
                       <div>
                         <label className="block text-xs text-gray-400 mb-1">Warna Partikel</label>
                         <div className="flex gap-1.5">
-                          <input type="color"
-                            value={form.bg_config?.particle_color || '#ffffff'}
+                          <input type="color" value={form.bg_config?.particle_color || '#ffffff'}
                             onChange={e => setField('bg_config', { ...form.bg_config, particle_color: e.target.value })}
                             className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent" />
-                          <input className="input-field text-xs flex-1"
-                            value={form.bg_config?.particle_color || '#ffffff'}
+                          <input className="input-field text-xs flex-1" value={form.bg_config?.particle_color || '#ffffff'}
                             onChange={e => setField('bg_config', { ...form.bg_config, particle_color: e.target.value })} />
                         </div>
                       </div>
                     )}
                   </div>
                 )}
+
+                {/* Preview background (live) */}
+                <div className="pt-2 border-t border-surface-600">
+                  <label className="block text-xs text-gray-400 mb-1.5">Preview Background</label>
+                  <BackgroundRenderer
+                    bgType={form.bg_type}
+                    bgConfig={form.bg_config}
+                    bgMediaUrl={form.bg_media_url}
+                    bgMediaType={form.bg_media_type}
+                    className="w-full rounded-lg overflow-hidden"
+                    style={{ paddingBottom: '56.25%', position: 'relative' }}
+                  >
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <p style={{
+                        color: form.text_color, fontFamily: form.font_family,
+                        fontSize: `${Math.round(form.font_size * 0.22)}px`,
+                        fontWeight: 'bold', textAlign: 'center',
+                        textShadow: '0 2px 8px rgba(0,0,0,0.8)',
+                      }}>
+                        Preview Teks
+                      </p>
+                    </div>
+                  </BackgroundRenderer>
+                </div>
               </div>
             )}
           </div>

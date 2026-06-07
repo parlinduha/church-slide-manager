@@ -7,11 +7,17 @@ import { useEffect, useRef } from 'react';
  *   'solid'      → warna solid biasa
  *   'gradient'   → gradient 2 warna dengan arah
  *   'animated'   → animasi background (pilih dari preset)
+ *   'media'      → gambar atau video yang diupload
  *
  * bg_config (JSON string atau object):
  *   solid:    { color: '#000000' }
  *   gradient: { from: '#1a237e', to: '#4a148c', angle: 135 }
  *   animated: { preset: 'waves'|'aurora'|'pulse'|'particles'|'nebula'|'fire'|'ocean' }
+ *   media:    { overlay_opacity: 0.3, overlay_color: '#000000', fit: 'cover'|'contain' }
+ *
+ * Props tambahan untuk media:
+ *   bgMediaUrl  → URL file media
+ *   bgMediaType → 'image' | 'video'
  */
 
 // ─── CSS Animations (injected sekali) ─────────────────────────────────────────
@@ -211,21 +217,81 @@ function ParticlesCanvas({ color = '#ffffff' }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function BackgroundRenderer({
-  bgType    = 'solid',
-  bgConfig  = {},
+  bgType     = 'solid',
+  bgConfig   = {},
+  bgMediaUrl  = '',
+  bgMediaType = '',
   children,
   style = {},
   className = '',
+  onClick,
 }) {
   useEffect(() => { injectStyles(); }, []);
 
   const cfg = typeof bgConfig === 'string' ? (() => { try { return JSON.parse(bgConfig); } catch { return {}; } })() : bgConfig;
+
+  // ── Media (image/video) ─────────────────────────────────────────────────
+  if (bgType === 'media' && bgMediaUrl) {
+    const overlayOpacity = cfg.overlay_opacity ?? 0.3;
+    const overlayColor   = cfg.overlay_color   || '#000000';
+    const fit            = cfg.fit             || 'cover';
+
+    return (
+      <div
+        className={className}
+        style={{ ...style, position: 'relative', overflow: 'hidden', backgroundColor: '#000' }}
+        onClick={onClick}
+      >
+        {/* Media background */}
+        {bgMediaType === 'video' ? (
+          <video
+            src={bgMediaUrl}
+            autoPlay
+            muted
+            loop
+            playsInline
+            style={{
+              position: 'absolute', inset: 0,
+              width: '100%', height: '100%',
+              objectFit: fit,
+              zIndex: 0,
+            }}
+          />
+        ) : (
+          <img
+            src={bgMediaUrl}
+            alt=""
+            style={{
+              position: 'absolute', inset: 0,
+              width: '100%', height: '100%',
+              objectFit: fit,
+              zIndex: 0,
+            }}
+          />
+        )}
+
+        {/* Overlay gelap untuk keterbacaan teks */}
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 1,
+          backgroundColor: overlayColor,
+          opacity: overlayOpacity,
+        }} />
+
+        {/* Konten (lirik) di atas overlay */}
+        <div style={{ position: 'relative', zIndex: 2, width: '100%', height: '100%',
+          display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {children}
+        </div>
+      </div>
+    );
+  }
 
   // ── Solid ──────────────────────────────────────────────────────
   if (bgType === 'solid') {
     return (
       <div
         className={className}
+        onClick={onClick}
         style={{ ...style, backgroundColor: cfg.color || '#000000', position: 'relative', overflow: 'hidden' }}
       >
         {children}
@@ -243,6 +309,7 @@ export default function BackgroundRenderer({
     return (
       <div
         className={`${className} ${animated ? 'bg-gradient-anim' : ''}`}
+        onClick={onClick}
         style={{
           ...style,
           background: animated
@@ -267,6 +334,7 @@ export default function BackgroundRenderer({
       return (
         <div
           className={`bg-particles ${className}`}
+          onClick={onClick}
           style={{ ...style, backgroundColor: bgColor, position: 'relative', overflow: 'hidden' }}
         >
           <ParticlesCanvas color={particleColor} />
@@ -290,6 +358,7 @@ export default function BackgroundRenderer({
     return (
       <div
         className={`${presetClass} ${className}`}
+        onClick={onClick}
         style={{ ...style, position: 'relative', overflow: 'hidden' }}
       >
         <div style={{ position: 'relative', zIndex: 2, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -301,7 +370,7 @@ export default function BackgroundRenderer({
 
   // Fallback
   return (
-    <div className={className} style={{ ...style, backgroundColor: '#000', position: 'relative', overflow: 'hidden' }}>
+    <div className={className} onClick={onClick} style={{ ...style, backgroundColor: '#000', position: 'relative', overflow: 'hidden' }}>
       {children}
     </div>
   );

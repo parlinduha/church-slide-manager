@@ -157,6 +157,12 @@ function runMigrations() {
   if (!cols.includes('bg_config')) {
     db.exec("ALTER TABLE songs ADD COLUMN bg_config TEXT DEFAULT '{}'");
   }
+  if (!cols.includes('bg_media_url')) {
+    db.exec("ALTER TABLE songs ADD COLUMN bg_media_url TEXT DEFAULT ''");
+  }
+  if (!cols.includes('bg_media_type')) {
+    db.exec("ALTER TABLE songs ADD COLUMN bg_media_type TEXT DEFAULT ''");
+  }
 }
 runMigrations();
 

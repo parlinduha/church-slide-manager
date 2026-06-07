@@ -52,6 +52,8 @@ export default function ProjectorPage() {
     text_align   = 'center',
     bg_type      = 'solid',
     bg_config    = {},
+    bg_media_url  = '',
+    bg_media_type = '',
   } = songSettings || {};
 
   const [showFsOverlay, setShowFsOverlay] = useState(true);
@@ -142,6 +144,8 @@ export default function ProjectorPage() {
     <BackgroundRenderer
       bgType={effectiveBgType}
       bgConfig={effectiveBgConfig}
+      bgMediaUrl={bg_media_url}
+      bgMediaType={bg_media_type}
       onClick={showFsOverlay ? handleFirstClick : undefined}
       className="w-screen h-screen select-none"
       style={{

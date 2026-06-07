@@ -1,6 +1,55 @@
 const express = require('express');
-const router = express.Router();
-const db = require('../db');
+const router  = express.Router();
+const multer  = require('multer');
+const path    = require('path');
+const fs      = require('fs');
+const db      = require('../db');
+
+// ─── Upload folder untuk background media lagu ─────────────────────────────
+const DATA_DIR  = process.env.DATA_DIR || path.join(__dirname, '../data');
+const MEDIA_DIR = path.join(DATA_DIR, 'song-media');
+if (!fs.existsSync(MEDIA_DIR)) fs.mkdirSync(MEDIA_DIR, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: MEDIA_DIR,
+  filename: (req, file, cb) => {
+    const ext  = path.extname(file.originalname).toLowerCase();
+    const name = `song-bg-${Date.now()}-${Math.random().toString(36).slice(2,7)}${ext}`;
+    cb(null, name);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 200 * 1024 * 1024 }, // 200 MB
+  fileFilter: (req, file, cb) => {
+    const ok = /\.(jpg|jpeg|png|gif|webp|mp4|webm|mov|avi)$/i.test(file.originalname);
+    cb(ok ? null : new Error('Hanya gambar dan video yang diizinkan'), ok);
+  },
+});
+
+// POST upload background media untuk lagu
+router.post('/media/upload', upload.single('file'), (req, res) => {
+  if (!req.file) return res.status(400).json({ success: false, error: 'File tidak ada' });
+  const mime = req.file.mimetype;
+  const mediaType = mime.startsWith('video/') ? 'video' : 'image';
+  const url = `/api/songs/media/${req.file.filename}`;
+  res.json({ success: true, data: { url, filename: req.file.filename, mediaType } });
+});
+
+// GET serve file media
+router.get('/media/:filename', (req, res) => {
+  const filePath = path.join(MEDIA_DIR, req.params.filename);
+  if (!fs.existsSync(filePath)) return res.status(404).send('File tidak ditemukan');
+  res.sendFile(filePath);
+});
+
+// DELETE hapus file media
+router.delete('/media/:filename', (req, res) => {
+  const filePath = path.join(MEDIA_DIR, req.params.filename);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  res.json({ success: true });
+});
 
 // GET semua lagu
 router.get('/', (req, res) => {
@@ -57,13 +106,19 @@ router.get('/:id', (req, res) => {
 // POST buat lagu baru
 router.post('/', (req, res) => {
   try {
-    const { title, author, key_signature, tempo, tags, slides, background_color, text_color, font_size, font_family, text_align, bg_type, bg_config } = req.body;
+    const { title, author, key_signature, tempo, tags, slides, background_color,
+            text_color, font_size, font_family, text_align,
+            bg_type, bg_config, bg_media_url, bg_media_type } = req.body;
 
     if (!title) return res.status(400).json({ success: false, error: 'Judul lagu wajib diisi' });
 
     const stmt = db.prepare(`
-      INSERT INTO songs (title, author, key_signature, tempo, tags, slides, background_color, text_color, font_size, font_family, text_align, bg_type, bg_config)
-      VALUES (@title, @author, @key_signature, @tempo, @tags, @slides, @background_color, @text_color, @font_size, @font_family, @text_align, @bg_type, @bg_config)
+      INSERT INTO songs (title, author, key_signature, tempo, tags, slides,
+        background_color, text_color, font_size, font_family, text_align,
+        bg_type, bg_config, bg_media_url, bg_media_type)
+      VALUES (@title, @author, @key_signature, @tempo, @tags, @slides,
+        @background_color, @text_color, @font_size, @font_family, @text_align,
+        @bg_type, @bg_config, @bg_media_url, @bg_media_type)
     `);
 
     const result = stmt.run({
@@ -80,6 +135,8 @@ router.post('/', (req, res) => {
       text_align: text_align || 'center',
       bg_type: bg_type || 'solid',
       bg_config: typeof bg_config === 'object' ? JSON.stringify(bg_config) : (bg_config || '{}'),
+      bg_media_url: bg_media_url || '',
+      bg_media_type: bg_media_type || '',
     });
 
     const newSong = db.prepare('SELECT * FROM songs WHERE id = ?').get(result.lastInsertRowid);
@@ -98,7 +155,9 @@ router.put('/:id', (req, res) => {
     const existing = db.prepare('SELECT id FROM songs WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ success: false, error: 'Lagu tidak ditemukan' });
 
-    const { title, author, key_signature, tempo, tags, slides, background_color, text_color, font_size, font_family, text_align, bg_type, bg_config } = req.body;
+    const { title, author, key_signature, tempo, tags, slides, background_color,
+            text_color, font_size, font_family, text_align,
+            bg_type, bg_config, bg_media_url, bg_media_type } = req.body;
 
     db.prepare(`
       UPDATE songs SET
@@ -114,7 +173,9 @@ router.put('/:id', (req, res) => {
         font_family = COALESCE(@font_family, font_family),
         text_align = COALESCE(@text_align, text_align),
         bg_type = COALESCE(@bg_type, bg_type),
-        bg_config = COALESCE(@bg_config, bg_config)
+        bg_config = COALESCE(@bg_config, bg_config),
+        bg_media_url = COALESCE(@bg_media_url, bg_media_url),
+        bg_media_type = COALESCE(@bg_media_type, bg_media_type)
       WHERE id = @id
     `).run({
       id: req.params.id,
@@ -131,6 +192,8 @@ router.put('/:id', (req, res) => {
       text_align: text_align || null,
       bg_type: bg_type || null,
       bg_config: bg_config !== undefined ? (typeof bg_config === 'object' ? JSON.stringify(bg_config) : bg_config) : null,
+      bg_media_url: bg_media_url !== undefined ? bg_media_url : null,
+      bg_media_type: bg_media_type !== undefined ? bg_media_type : null,
     });
 
     const updated = db.prepare('SELECT * FROM songs WHERE id = ?').get(req.params.id);
