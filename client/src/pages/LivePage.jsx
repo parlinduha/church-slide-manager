@@ -51,6 +51,8 @@ export default function LivePage() {
         font_size: song.font_size,
         font_family: song.font_family,
         text_align: song.text_align,
+        bg_type: song.bg_type || 'solid',
+        bg_config: song.bg_config ? (typeof song.bg_config === 'string' ? JSON.parse(song.bg_config) : song.bg_config) : {},
       },
     });
   }, [send]);

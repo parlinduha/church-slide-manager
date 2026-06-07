@@ -57,13 +57,13 @@ router.get('/:id', (req, res) => {
 // POST buat lagu baru
 router.post('/', (req, res) => {
   try {
-    const { title, author, key_signature, tempo, tags, slides, background_color, text_color, font_size, font_family, text_align } = req.body;
+    const { title, author, key_signature, tempo, tags, slides, background_color, text_color, font_size, font_family, text_align, bg_type, bg_config } = req.body;
 
     if (!title) return res.status(400).json({ success: false, error: 'Judul lagu wajib diisi' });
 
     const stmt = db.prepare(`
-      INSERT INTO songs (title, author, key_signature, tempo, tags, slides, background_color, text_color, font_size, font_family, text_align)
-      VALUES (@title, @author, @key_signature, @tempo, @tags, @slides, @background_color, @text_color, @font_size, @font_family, @text_align)
+      INSERT INTO songs (title, author, key_signature, tempo, tags, slides, background_color, text_color, font_size, font_family, text_align, bg_type, bg_config)
+      VALUES (@title, @author, @key_signature, @tempo, @tags, @slides, @background_color, @text_color, @font_size, @font_family, @text_align, @bg_type, @bg_config)
     `);
 
     const result = stmt.run({
@@ -78,6 +78,8 @@ router.post('/', (req, res) => {
       font_size: font_size || 48,
       font_family: font_family || 'Arial',
       text_align: text_align || 'center',
+      bg_type: bg_type || 'solid',
+      bg_config: typeof bg_config === 'object' ? JSON.stringify(bg_config) : (bg_config || '{}'),
     });
 
     const newSong = db.prepare('SELECT * FROM songs WHERE id = ?').get(result.lastInsertRowid);
@@ -96,7 +98,7 @@ router.put('/:id', (req, res) => {
     const existing = db.prepare('SELECT id FROM songs WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ success: false, error: 'Lagu tidak ditemukan' });
 
-    const { title, author, key_signature, tempo, tags, slides, background_color, text_color, font_size, font_family, text_align } = req.body;
+    const { title, author, key_signature, tempo, tags, slides, background_color, text_color, font_size, font_family, text_align, bg_type, bg_config } = req.body;
 
     db.prepare(`
       UPDATE songs SET
@@ -110,7 +112,9 @@ router.put('/:id', (req, res) => {
         text_color = COALESCE(@text_color, text_color),
         font_size = COALESCE(@font_size, font_size),
         font_family = COALESCE(@font_family, font_family),
-        text_align = COALESCE(@text_align, text_align)
+        text_align = COALESCE(@text_align, text_align),
+        bg_type = COALESCE(@bg_type, bg_type),
+        bg_config = COALESCE(@bg_config, bg_config)
       WHERE id = @id
     `).run({
       id: req.params.id,
@@ -125,6 +129,8 @@ router.put('/:id', (req, res) => {
       font_size: font_size || null,
       font_family: font_family || null,
       text_align: text_align || null,
+      bg_type: bg_type || null,
+      bg_config: bg_config !== undefined ? (typeof bg_config === 'object' ? JSON.stringify(bg_config) : bg_config) : null,
     });
 
     const updated = db.prepare('SELECT * FROM songs WHERE id = ?').get(req.params.id);

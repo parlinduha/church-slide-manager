@@ -33,6 +33,8 @@ function initDatabase() {
       font_size INTEGER DEFAULT 48,
       font_family TEXT DEFAULT 'Arial',
       text_align TEXT DEFAULT 'center',
+      bg_type TEXT DEFAULT 'solid',
+      bg_config TEXT DEFAULT '{}',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
@@ -145,5 +147,17 @@ function seedSampleData() {
 }
 
 initDatabase();
+
+// ─── Migration: tambah kolom baru jika belum ada (untuk database lama) ────────
+function runMigrations() {
+  const cols = db.prepare("PRAGMA table_info(songs)").all().map(c => c.name);
+  if (!cols.includes('bg_type')) {
+    db.exec("ALTER TABLE songs ADD COLUMN bg_type TEXT DEFAULT 'solid'");
+  }
+  if (!cols.includes('bg_config')) {
+    db.exec("ALTER TABLE songs ADD COLUMN bg_config TEXT DEFAULT '{}'");
+  }
+}
+runMigrations();
 
 module.exports = db;

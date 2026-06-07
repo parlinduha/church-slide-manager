@@ -18,6 +18,8 @@ let liveState = {
     font_size: 48,
     font_family: 'Arial',
     text_align: 'center',
+    bg_type: 'solid',
+    bg_config: {},
   },
   // Welcome mode
   welcomeSlide: null,     // objek slide welcome yang sedang tampil
