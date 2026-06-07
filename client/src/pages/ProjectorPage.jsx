@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWebSocket } from '../hooks/useWebSocket';
+import LyricRenderer from '../components/LyricRenderer';
 
 // Countdown besar untuk proyektor
 function CountdownProjector({ targetIso, color, fontSize }) {
@@ -299,30 +300,24 @@ export default function ProjectorPage() {
             </div>
           </motion.div>
         ) : showText ? (
-          /* ── Mode Song ── */
+          /* ── Mode Song — LyricRenderer dengan tipografi hidup ── */
           <motion.div
             key={`${currentSlideIndex}-${currentSlide.id}`}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="w-full h-full flex items-center justify-center p-16"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            transition={{ duration: 0.2 }}
+            className="w-full h-full flex items-center justify-center"
+            style={{ padding: `${font_size * 0.8}px ${font_size * 1.2}px` }}
           >
-            <p
-              style={{
-                color: text_color,
-                fontSize: `${font_size}px`,
-                fontFamily: font_family,
-                textAlign: text_align,
-                lineHeight: 1.5,
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-                textShadow: '0 2px 12px rgba(0,0,0,0.9)',
-                maxWidth: '100%',
-              }}
-            >
-              {currentSlide.content}
-            </p>
+            <LyricRenderer
+              content={currentSlide.content}
+              color={text_color}
+              fontSize={font_size}
+              fontFamily={font_family}
+              textAlign={text_align}
+              animationKey={`${currentSlideIndex}-${currentSlide.id}`}
+            />
           </motion.div>
         ) : !isLive && !isBlackScreen ? (
           /* ── Standby ── */
