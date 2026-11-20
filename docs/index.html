@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Church Slide Cloud Remote</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+    body {
+      background-color: #0b132b;
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .badge-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(34, 197, 94, 0.2);
+      border: 1px solid #22c55e;
+      color: #4ade80;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: bold;
+    }
+    .badge-status.offline {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: #ef4444;
+      color: #f87171;
+    }
+    .badge-status .dot {
+      width: 7px; height: 7px; border-radius: 50%; background: currentColor;
+    }
+
+    /* PIN Entry Card */
+    #pinSection {
+      margin: auto 0;
+      background: #1c2541;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px;
+      padding: 24px 20px;
+      text-align: center;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+    .pin-title { font-size: 20px; font-weight: bold; margin-bottom: 8px; color: #f8fafc; }
+    .pin-subtitle { font-size: 13px; color: #94a3b8; margin-bottom: 20px; line-height: 1.4; }
+    .pin-input {
+      width: 100%;
+      background: #0b132b;
+      border: 2px solid #3b82f6;
+      border-radius: 12px;
+      color: #ffffff;
+      font-size: 28px;
+      font-weight: bold;
+      text-align: center;
+      letter-spacing: 8px;
+      padding: 12px;
+      outline: none;
+      margin-bottom: 16px;
+    }
+    .btn-connect {
+      width: 100%;
+      background: #3b82f6;
+      border: none;
+      border-radius: 12px;
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: bold;
+      padding: 14px;
+      cursor: pointer;
+    }
+
+    /* Live Remote View */
+    #remoteSection {
+      display: none;
+      flex-direction: column;
+      flex: 1;
+    }
+    .title-box {
+      margin: 14px 0 10px;
+      text-align: center;
+    }
+    .song-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #f1f5f9;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .slide-info {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 2px;
+    }
+    .main-card {
+      background: #1c2541;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 20px 16px;
+      min-height: 180px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      margin-bottom: 16px;
+      position: relative;
+    }
+    .main-card.black { background: #000000; border-color: #374151; }
+    .main-card.blank { background: #111827; border-color: #4b5563; }
+    .slide-text {
+      font-size: 19px;
+      font-weight: 600;
+      line-height: 1.45;
+      color: #ffffff;
+      white-space: pre-line;
+    }
+    .verse-ref-badge {
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      background: rgba(59, 130, 246, 0.25);
+      border: 1px solid #3b82f6;
+      color: #93c5fd;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: bold;
+    }
+    .status-overlay {
+      color: #ef4444;
+      font-size: 16px;
+      font-weight: bold;
+      letter-spacing: 2px;
+    }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: auto;
+    }
+    button.btn-ctrl {
+      background: #1e293b;
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #ffffff;
+      padding: 16px;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      active: transform: scale(0.96);
+    }
+    button.btn-ctrl:active { transform: scale(0.96); }
+    .btn-next {
+      grid-column: span 2;
+      background: linear-gradient(135deg, #4f46e5, #3b82f6) !important;
+      padding: 22px !important;
+      font-size: 19px !important;
+      box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4) !important;
+    }
+    .btn-black { background: #111827; border-color: #374151; font-size: 13px !important; }
+    .btn-blank { background: #1f2937; border-color: #4b5563; font-size: 13px !important; }
+  </style>
+</head>
+<body>
+  <header>
+    <div style="font-weight:bold; font-size:13px; color:#c7d2fe;">☁️ Church Slide Cloud Remote</div>
+    <div id="connStatus" class="badge-status offline">
+      <span class="dot"></span>
+      <span id="connText">OFFLINE</span>
+    </div>
+  </header>
+
+  <!-- Section 1: PIN Input -->
+  <div id="pinSection">
+    <div class="pin-title">Masukkan PIN Sesi Ibadah</div>
+    <div class="pin-subtitle">Lihat 6-digit kode PIN yang tampil di layar laptop operator gereja Anda.</div>
+    <input id="pinInput" class="pin-input" type="tel" maxlength="6" placeholder="000000" autofocus>
+    <button class="btn-connect" onclick="submitPin()">Sambungkan ke Gereja 🚀</button>
+  </div>
+
+  <!-- Section 2: Remote Control UI -->
+  <div id="remoteSection">
+    <div class="title-box">
+      <div id="songTitle" class="song-title">Menghubungkan ke Gereja...</div>
+      <div id="slideInfo" class="slide-info">Slide - / -</div>
+    </div>
+
+    <div id="mainCard" class="main-card">
+      <div id="verseBadge" class="verse-ref-badge" style="display:none;"></div>
+      <div id="slideText" class="slide-text">Memuat status proyektor...</div>
+    </div>
+
+    <div class="controls-grid">
+      <button class="btn-ctrl btn-black" onclick="sendAction('toggle_black')">⬛ Black Screen</button>
+      <button class="btn-ctrl btn-blank" onclick="sendAction('toggle_blank')">⚪ Blank Screen</button>
+      <button class="btn-ctrl" onclick="sendAction('prev_slide')">⏮️ Mundur</button>
+      <button class="btn-ctrl" onclick="sendAction('next_slide')">Maju ⏭️</button>
+      <button class="btn-ctrl btn-next" onclick="sendAction('next_slide')">⏭️ LANJUT (NEXT)</button>
+    </div>
+  </div>
+
+  <script>
+    let currentPin = '';
+    let ws;
+    const pinSection = document.getElementById('pinSection');
+    const remoteSection = document.getElementById('remoteSection');
+    const pinInput = document.getElementById('pinInput');
+    const connStatus = document.getElementById('connStatus');
+    const connText = document.getElementById('connText');
+    const songTitle = document.getElementById('songTitle');
+    const slideInfo = document.getElementById('slideInfo');
+    const mainCard = document.getElementById('mainCard');
+    const slideText = document.getElementById('slideText');
+    const verseBadge = document.getElementById('verseBadge');
+
+    // Auto-detect PIN from URL hash e.g. #pin=742819
+    window.addEventListener('load', () => {
+      const hash = window.location.hash || window.location.search;
+      const match = hash.match(/pin=(\d{6})/i);
+      if (match && match[1]) {
+        pinInput.value = match[1];
+        submitPin();
+      }
+    });
+
+    function submitPin() {
+      const val = pinInput.value.trim();
+      if (val.length !== 6) {
+        alert('Harap masukkan 6-digit PIN yang valid.');
+        return;
+      }
+      currentPin = val;
+      pinSection.style.display = 'none';
+      remoteSection.style.display = 'flex';
+      connectCloud();
+    }
+
+    function connectCloud() {
+      connStatus.className = 'badge-status';
+      connText.innerText = 'MENGHUBUNGKAN...';
+
+      const topicSlide = 'csm_v2_' + currentPin + '_slides';
+      const wsUri = 'wss://ntfy.sh/' + topicSlide + '/ws';
+      ws = new WebSocket(wsUri);
+
+      ws.onopen = () => {
+        connStatus.className = 'badge-status';
+        connText.innerText = 'CLOUD TERHUBUNG (PIN: ' + currentPin + ')';
+        // Announce client presence
+        sendAction('client_joined');
+      };
+
+      ws.onmessage = (e) => {
+        try {
+          const raw = JSON.parse(e.data);
+          if (raw.event === 'message' && raw.message) {
+            const payload = JSON.parse(raw.message);
+            renderSlide(payload);
+          }
+        } catch (_) {}
+      };
+
+      ws.onclose = () => {
+        connStatus.className = 'badge-status offline';
+        connText.innerText = 'TERPUTUS';
+        setTimeout(connectCloud, 3000);
+      };
+
+      ws.onerror = () => {
+        connStatus.className = 'badge-status offline';
+        connText.innerText = 'ERROR KONEKSI';
+      };
+    }
+
+    function renderSlide(p) {
+      if (p.isBlack) {
+        mainCard.className = 'main-card black';
+        verseBadge.style.display = 'none';
+        slideText.innerHTML = '<span class="status-overlay">BLACK SCREEN</span>';
+      } else if (p.isBlank) {
+        mainCard.className = 'main-card blank';
+        verseBadge.style.display = 'none';
+        slideText.innerHTML = '<span class="status-overlay">BLANK SCREEN</span>';
+      } else {
+        mainCard.className = 'main-card';
+        if (p.isVerse && p.verseRef) {
+          verseBadge.style.display = 'inline-block';
+          verseBadge.innerText = p.verseRef;
+        } else {
+          verseBadge.style.display = 'none';
+        }
+        slideText.innerText = p.text || '(Slide Kosong)';
+      }
+
+      if (p.isVerse) {
+        songTitle.innerText = p.verseRef || 'Alkitab';
+      } else {
+        songTitle.innerText = p.songTitle || 'Lagu Gereja';
+      }
+
+      if (p.totalSlides) {
+        slideInfo.innerText = 'Slide ' + ((p.slideIndex || 0) + 1) + ' dari ' + p.totalSlides;
+      }
+    }
+
+    function sendAction(actionName) {
+      if (!currentPin) return;
+      if (navigator.vibrate) navigator.vibrate(40);
+
+      const actionTopic = 'csm_v2_' + currentPin + '_actions';
+      const actionUrl = 'https://ntfy.sh/' + actionTopic;
+      const payload = JSON.stringify({
+        action: actionName,
+        client_id: 'phone_web_' + (window.navigator.userAgent.slice(0, 15)),
+        time: Date.now()
+      });
+
+      fetch(actionUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
+      }).catch(() => {});
+    }
+  </script>
+</body>
+</html>
