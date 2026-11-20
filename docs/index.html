@@ -178,6 +178,47 @@
     }
     .btn-black { background: #111827; border-color: #374151; font-size: 13px !important; }
     .btn-blank { background: #1f2937; border-color: #4b5563; font-size: 13px !important; }
+    .slide-jumper {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding: 6px 2px 10px;
+      margin-bottom: 8px;
+      scrollbar-width: none;
+    }
+    .slide-jumper::-webkit-scrollbar { display: none; }
+    .pill-slide {
+      min-width: 38px;
+      height: 38px;
+      background: #1e293b;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px;
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .pill-slide.active {
+      background: #f59e0b;
+      color: #000000;
+      border-color: #fbbf24;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+    }
+    .btn-video {
+      margin-top: 12px;
+      background: #f59e0b;
+      color: #000;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 18px;
+      font-weight: bold;
+      font-size: 14px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -209,6 +250,8 @@
       <div id="slideText" class="slide-text">Memuat status proyektor...</div>
     </div>
 
+    <div id="slideJumper" class="slide-jumper" style="display:none;"></div>
+
     <div class="controls-grid">
       <button class="btn-ctrl btn-black" onclick="sendAction('toggle_black')">⬛ Black Screen</button>
       <button class="btn-ctrl btn-blank" onclick="sendAction('toggle_blank')">⚪ Blank Screen</button>
@@ -231,6 +274,7 @@
     const mainCard = document.getElementById('mainCard');
     const slideText = document.getElementById('slideText');
     const verseBadge = document.getElementById('verseBadge');
+    const slideJumper = document.getElementById('slideJumper');
 
     // Auto-detect PIN from URL hash e.g. #pin=742819
     window.addEventListener('load', () => {
@@ -302,16 +346,34 @@
         slideText.innerHTML = '<span class="status-overlay">BLANK SCREEN</span>';
       } else {
         mainCard.className = 'main-card';
-        if (p.isVerse && p.verseRef) {
+        if (p.isSermon) {
           verseBadge.style.display = 'inline-block';
+          verseBadge.style.background = 'rgba(245, 158, 11, 0.25)';
+          verseBadge.style.borderColor = '#f59e0b';
+          verseBadge.style.color = '#fde68a';
+          verseBadge.innerText = p.mediaType === 'video' ? 'VIDEO KHOTBAH' : 'SLIDE KHOTBAH';
+
+          if (p.mediaType === 'video') {
+            slideText.innerHTML = '<div style="font-size:36px; margin-bottom:6px;">🎬</div><div style="font-size:15px; font-weight:bold; color:#fbbf24;">' + (p.text || 'Klip Video Khotbah') + '</div><button class="btn-video" onclick="sendAction(\\'toggle_video\\')">' + (p.isVideoPlaying ? '⏸ JEDA VIDEO' : '▶ PUTAR VIDEO') + '</button>';
+          } else {
+            slideText.innerHTML = '<div style="font-size:28px; margin-bottom:6px;">📊</div><div style="font-size:17px; font-weight:bold; color:#ffffff;">Slide ' + ((p.slideIndex || 0) + 1) + '</div><div style="font-size:12px; color:#94a3b8; margin-top:4px;">dari ' + p.totalSlides + ' Slide Khotbah</div>';
+          }
+        } else if (p.isVerse && p.verseRef) {
+          verseBadge.style.display = 'inline-block';
+          verseBadge.style.background = 'rgba(34, 197, 94, 0.25)';
+          verseBadge.style.borderColor = '#22c55e';
+          verseBadge.style.color = '#86efac';
           verseBadge.innerText = p.verseRef;
+          slideText.innerText = p.text || '(Ayat Kosong)';
         } else {
           verseBadge.style.display = 'none';
+          slideText.innerText = p.text || '(Slide Kosong)';
         }
-        slideText.innerText = p.text || '(Slide Kosong)';
       }
 
-      if (p.isVerse) {
+      if (p.isSermon) {
+        songTitle.innerText = p.sermonTitle || 'Bahan Khotbah';
+      } else if (p.isVerse) {
         songTitle.innerText = p.verseRef || 'Alkitab';
       } else {
         songTitle.innerText = p.songTitle || 'Lagu Gereja';
@@ -319,10 +381,25 @@
 
       if (p.totalSlides) {
         slideInfo.innerText = 'Slide ' + ((p.slideIndex || 0) + 1) + ' dari ' + p.totalSlides;
+
+        // Render Slide Jumper Pills if more than 1 slide
+        if (p.totalSlides > 1) {
+          slideJumper.style.display = 'flex';
+          let html = '';
+          for (let i = 0; i < p.totalSlides; i++) {
+            const isAct = i === (p.slideIndex || 0);
+            html += '<div class="pill-slide ' + (isAct ? 'active' : '') + '" onclick="sendAction(\\'set_slide\\', {index:' + i + '})">' + (i + 1) + '</div>';
+          }
+          slideJumper.innerHTML = html;
+        } else {
+          slideJumper.style.display = 'none';
+        }
+      } else {
+        slideJumper.style.display = 'none';
       }
     }
 
-    function sendAction(actionName) {
+    function sendAction(actionName, extra = {}) {
       if (!currentPin) return;
       if (navigator.vibrate) navigator.vibrate(40);
 
@@ -330,6 +407,7 @@
       const actionUrl = 'https://ntfy.sh/' + actionTopic;
       const payload = JSON.stringify({
         action: actionName,
+        ...extra,
         client_id: 'phone_web_' + (window.navigator.userAgent.slice(0, 15)),
         time: Date.now()
       });
